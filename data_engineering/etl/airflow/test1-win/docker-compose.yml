@@ -1,0 +1,107 @@
+services:
+  postgres:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - postgres-db-volume:/var/lib/postgresql/data
+
+  airflow-webserver:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      - postgres
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./plugins:/opt/airflow/plugins
+      - airflow_logs:/opt/airflow/logs
+    ports:
+      - "8080:8080"
+    command: webserver
+
+  airflow-scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      - postgres
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./plugins:/opt/airflow/plugins
+      - airflow_logs:/opt/airflow/logs
+    command: scheduler
+
+  airflow-init:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      - postgres
+    entrypoint: >
+      bash -c "airflow db migrate &&
+               airflow users create --username admin --firstname admin --lastname admin --role Admin --email admin@example.com --password admin"
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+      PATH: /home/airflow/.local/bin:/opt/airflow/bin:/usr/local/bin:/usr/bin:/bin
+
+  jupyter:
+    image: jupyter/datascience-notebook:notebook-6.5.4
+    ports:
+      - "8888:8888"
+    volumes:
+      - jupyter_data:/home/jovyan/
+      - dags_shared:/home/jovyan/dags
+    environment:
+      MLFLOW_TRACKING_URI: http://mlflow-service:5000
+      AWS_ENDPOINT_URL: https://storage.yandexcloud.net
+      AWS_ACCESS_KEY_ID: your_key
+      AWS_SECRET_ACCESS_KEY: your_secret
+      AWS_DEFAULT_REGION: ru-central1
+      JUPYTER_ENABLE_LAB: "yes"
+    depends_on:
+      - mlflow-service
+    command:
+      - bash
+      - -c
+      - |
+        pip install mlflow==2.15.1 --quiet
+        pip install boto3 --quiet
+        /usr/local/bin/start-notebook.sh --NotebookApp.token=''
+
+  mlflow-service:
+    image: ghcr.io/mlflow/mlflow:v2.15.1
+    environment:
+      MLFLOW_S3_ENDPOINT_URL: https://storage.yandexcloud.net
+      AWS_ACCESS_KEY_ID: your_key
+      AWS_SECRET_ACCESS_KEY: your_secret
+      AWS_DEFAULT_REGION: ru-central1
+    command:
+      - bash
+      - -c
+      - |
+        pip install boto3 --quiet
+        mlflow server --host 0.0.0.0 \
+            --default-artifact-root s3://yourbucket/mlflow --serve-artifacts
+    ports:
+      - "5050:5000"
+    volumes:
+      - mlflow-data:/mlflow
+
+volumes:
+  postgres-db-volume:
+  airflow_logs:
+  jupyter_data:
+  dags_shared:
+  mlflow-data:
