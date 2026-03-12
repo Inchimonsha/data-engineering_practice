@@ -1,0 +1,32 @@
+version: "3.8"
+
+services:
+  clickhouse-server_de:
+    image: clickhouse/clickhouse-server:latest
+    container_name: clickhouse-server_de
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    environment:
+      CLICKHOUSE_USER: admin
+      CLICKHOUSE_PASSWORD: admin
+      CLICKHOUSE_DB: test
+    restart: unless-stopped
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+
+  redis-stack_de:
+    image: redis/redis-stack:latest
+    container_name: redis-stack_de
+    ports:
+      - "6383:6379" # Redis
+      - "8083:8001" # RedisInsight
+    restart: unless-stopped
+    environment:
+      - REDIS_ARGS=--requirepass password # Опционально: пароль
+    volumes:
+      - redis_data:/data
+
+volumes:
+  clickhouse-data:
+  redis_data:

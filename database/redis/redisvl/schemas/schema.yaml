@@ -1,0 +1,25 @@
+index:
+  name: user-idx
+  prefix: user
+  storage_type: json
+
+fields:
+  - name: doc_id
+    type: tag
+  - name: user
+    type: tag
+  - name: credit_score
+    type: tag
+  - name: job_title
+    type: text
+    attrs:
+      sortable: true
+      no_index: false # Index for search (default)
+      unf: false # Normalize case for sorting (default)
+  - name: embedding
+    type: vector
+    attrs:
+      algorithm: hnsw
+      dims: 4
+      distance_metric: cosine
+      datatype: float32
